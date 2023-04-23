@@ -1,67 +1,35 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.9;
 
-contract WETH9 {
-    string public name     = "Wrapped Ether";
-    string public symbol   = "WETH";
-    uint8  public decimals = 18;
+import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-    event  Approval(address indexed src, address indexed guy, uint wad);
-    event  Transfer(address indexed src, address indexed dst, uint wad);
-    event  Deposit(address indexed dst, uint wad);
-    event  Withdrawal(address indexed src, uint wad);
+interface IWETH9 {
+    function deposit() external payable;
 
-    mapping (address => uint)                       public  balanceOf;
-    mapping (address => mapping (address => uint))  public  allowance;
+    function withdraw(uint256 _amount) external;
 
-    function () public payable {
-        deposit();
-    }
-    
-    function deposit() public payable {
-        balanceOf[msg.sender] += msg.value;
-        Deposit(msg.sender, msg.value);
-    }
-    function withdraw(uint wad) public {
-        require(balanceOf[msg.sender] >= wad);
-        balanceOf[msg.sender] -= wad;
-        msg.sender.transfer(wad);
-        Withdrawal(msg.sender, wad);
-    }
-
-    function totalSupply() public view returns (uint) {
-        return this.balance;
-    }
-
-    function approve(address guy, uint wad) public returns (bool) {
-        allowance[msg.sender][guy] = wad;
-        Approval(msg.sender, guy, wad);
-        return true;
-    }
-
-    function transfer(address dst, uint wad) public returns (bool) {
-        return transferFrom(msg.sender, dst, wad);
-    }
-
-    function transferFrom(address src, address dst, uint wad)
-        public
-        returns (bool)
-    {
-        require(balanceOf[src] >= wad);
-
-        if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
-            require(allowance[src][msg.sender] >= wad);
-            allowance[src][msg.sender] -= wad;
-        }
-
-        balanceOf[src] -= wad;
-        balanceOf[dst] += wad;
-
-        Transfer(src, dst, wad);
-
-        return true;
-    }
+    event Deposit(address indexed _sender, uint256 _amount);
+    event Withdraw(address indexed _owner, uint256 _amount);
 }
 
-// resource
-// https://etherscan.io/address/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2#code
+contract WETH9 is ERC20, IWETH9 {
+    constructor(
+        string memory _name,
+        string memory _symbol
+    ) ERC20(_name, _symbol) {}
+
+    function deposit() external payable {
+        uint amount = msg.value;
+        require(amount > 0, "Can not deposit less than 0");
+        address sender = _msgSender();
+        _mint(sender, amount);
+        emit Deposit(sender, amount);
+    }
+
+    function withdraw(uint256 amount) external {
+        address sender = _msgSender();
+        _burn(sender, amount);
+        payable(sender).transfer(amount);
+        emit Withdraw(sender, amount);
+    }
+}
